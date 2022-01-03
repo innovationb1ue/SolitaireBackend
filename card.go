@@ -1,15 +1,18 @@
 package main
 
+// for a single card
 type card struct {
 	id   int
 	num  int
 	suit int
 }
 
+// collection of undistributed cards
 type cardDecker struct {
 	cards []card
 }
 
+// count how may cards in card collection
 func (cDecker *cardDecker) cardLeft() int {
 	count := 0
 	for _, c := range cDecker.cards {
