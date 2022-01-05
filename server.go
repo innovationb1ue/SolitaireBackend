@@ -11,6 +11,7 @@ import (
 type ServerStatusManager struct {
 	Server  interface{}
 	Players map[int]*Player
+	Rooms   map[int]*Room
 }
 
 var upgrader = websocket.Upgrader{}
@@ -50,7 +51,7 @@ func (s *ServerStatusManager) CreatePlayer(w http.ResponseWriter, r *http.Reques
 		Conn:   &websocket.Conn{},
 	}
 	// iter through possible ids
-	for i := 1; i < 999; i++ {
+	for i := 1; i < 9999; i++ {
 		if s.Players[i] == nil {
 			p.Id = i
 			s.Players[i] = p
@@ -91,7 +92,8 @@ func (s *ServerStatusManager) OpenPlayerSocket(w http.ResponseWriter, r *http.Re
 		return
 	}
 	// handle inbound message
-	go testHandler(player.Conn)
+	// todo: handle all player inbound messages
+	// go testHandler(player.Conn)
 }
 
 func testHandler(c *websocket.Conn) {

@@ -13,3 +13,7 @@ type Player struct {
 	isConnected bool
 	send        chan []byte
 }
+
+func (p Player) JoinRoom(RoomId int) {
+	
+}
