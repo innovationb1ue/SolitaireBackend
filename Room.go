@@ -1,43 +1,32 @@
 package main
 
-import (
-	"flag"
-	"github.com/gorilla/websocket"
-	"log"
-	"net/http"
-)
-
 type Room struct {
-	RoomId int
-	socket websocket.Conn
+	RoomId    int
+	Players   map[int]*Player
+	broadcast chan []byte
 }
 
-var addr = flag.String("addr", "localhost:8080", "http service address")
-
-var upgrader = websocket.Upgrader{} // use default options
-
-func echo(w http.ResponseWriter, r *http.Request) {
-	c, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Print("upgrade:", err)
-		return
+func newRoom(RoomId int) *Room {
+	return &Room{
+		RoomId:    RoomId,
+		Players:   make(map[int]*Player),
+		broadcast: make(chan []byte),
 	}
-	defer c.Close()
+}
+
+func (r *Room) AddPlayer(p *Player) {
+	r.Players[p.Id] = p
+}
+
+func (r *Room) run() {
 	for {
-		mt, message, err := c.ReadMessage()
-		if err != nil {
-			log.Println("read:", err)
-			break
-		}
-		log.Printf("recv: %s", message)
-		err = c.WriteMessage(mt, message)
-		if err != nil {
-			log.Println("write:", err)
-			break
+		select {
+		case message := <-r.broadcast:
+			{
+				for _, client := range r.Players {
+					client.send <- message
+				}
+			}
 		}
 	}
-}
-
-func (r *Room) init() {
-
 }

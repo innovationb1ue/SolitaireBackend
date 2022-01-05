@@ -1,10 +1,15 @@
 package main
 
-// Player object for a player
+import "github.com/gorilla/websocket"
+
+// Player struct
 type Player struct {
-	Name   string
-	Id     int
-	Score  int
-	Desk   [][]card
-	Decker cardDecker
+	Name        string
+	Id          int
+	Score       int
+	Desk        [][]card
+	Decker      cardDeck
+	Conn        *websocket.Conn
+	isConnected bool
+	send        chan []byte
 }
