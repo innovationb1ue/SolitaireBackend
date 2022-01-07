@@ -20,13 +20,19 @@ func (r *Room) AddPlayer(p *Player) {
 	r.Players[p.Id] = p
 }
 
-func (r *Room) run() {
+func (r *Room) Run() {
 	for {
 		select {
 		case message := <-r.broadcast:
 			{
 				for _, client := range r.Players {
-					client.send <- message
+					select {
+					case client.send <- message:
+					default:
+						close(client.send)
+						delete(r.Players, client.Id)
+					}
+
 				}
 			}
 		}

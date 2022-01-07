@@ -6,10 +6,10 @@ import (
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 type ServerStatusManager struct {
-	Server  interface{}
 	Players map[string]*Player
 	Rooms   map[string]*Room
 }
@@ -32,15 +32,17 @@ func (s *ServerStatusManager) Start(port string) {
 		p := map[string]interface{}{"message": "Main page"}
 		_ = json.NewEncoder(writer).Encode(p)
 	})
-
-	http.HandleFunc("/player/socket/", s.OpenPlayerSocket)
 	http.HandleFunc("/player/create/", s.CreatePlayer)
+	http.HandleFunc("/player/socket/", s.OpenPlayerSocket)
 	http.HandleFunc("/room/create", s.CreateNewRoom)
+	http.HandleFunc("/player/query_all", s.QueryAllPlayer)
+	// start server
+	_ = http.ListenAndServe(port, nil)
+}
 
-	err := http.ListenAndServe(port, nil)
-	if err != nil {
-		panic(err)
-	}
+func (s *ServerStatusManager) QueryAllPlayer(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok create room", "player_ids": s.Players})
 }
 
 func (s *ServerStatusManager) CreateNewRoom(w http.ResponseWriter, r *http.Request) {
@@ -55,17 +57,25 @@ func (s *ServerStatusManager) JoinRoom(w http.ResponseWriter, r *http.Request) {
 	room := s.Rooms[RoomId]
 	p := s.Players[PlayerId]
 	room.AddPlayer(p)
+	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok join room"})
 }
 
 func (s *ServerStatusManager) CreatePlayer(w http.ResponseWriter, r *http.Request) {
+	// check required variable
+	PlayerName := r.FormValue("player_name")
+	if PlayerName == "" {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "Failed create player, empty player name. "})
+		return
+	}
+	// create player struct
 	p := &Player{
-		Name:   r.FormValue("player_name"),
-		Id:     uuid.NewString(),
-		Score:  0,
-		Desk:   nil,
-		Decker: cardDeck{},
-		Conn:   &websocket.Conn{},
+		Name:  r.FormValue("player_name"),
+		Id:    uuid.NewString(),
+		Score: 0,
+		Desk:  nil,
+		Deck:  cardDeck{},
+		Conn:  &websocket.Conn{},
 	}
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok create player", "player_id": p.Id})
 }
@@ -74,6 +84,10 @@ func (s *ServerStatusManager) OpenPlayerSocket(w http.ResponseWriter, r *http.Re
 	// get corresponding player
 	playerId := r.FormValue("player_id")
 	player := s.Players[playerId]
+	if player == nil {
+		w.Header().Set("ErrorMessage", "Player not found")
+		w.WriteHeader(http.StatusConflict)
+	}
 	// check for multiple connect
 	if player.isConnected {
 		log.Print("Player already connected")
@@ -100,36 +114,24 @@ func (s *ServerStatusManager) OpenPlayerSocket(w http.ResponseWriter, r *http.Re
 		log.Print("Error returning ok json. ", err)
 		return
 	}
-	// handle inbound message
-	// todo: handle all player inbound messages
-	// go testHandler(player.Conn)
-}
-
-func testHandler(c *websocket.Conn) {
-	for {
-		mt, message, err := c.ReadMessage()
-		if err != nil {
-			log.Println("read:", err)
-			break
-		}
-		log.Printf("recv: %s", message)
-		err = c.WriteMessage(mt, message)
-		if err != nil {
-			log.Println("write:", err)
-			break
-		}
-	}
+	log.Printf("Player %s connected", playerId)
 }
 
 func (s *ServerStatusManager) Init() {
+	// initiate 2 players for test
 	s.Players = make(map[string]*Player)
-	p := &Player{
-		Name:   "Test",
-		Id:     uuid.NewString(),
-		Score:  0,
-		Desk:   nil,
-		Decker: cardDeck{},
-		Conn:   &websocket.Conn{},
+	for a := 0; a <= 1; a++ {
+		p := &Player{
+			Name:  "Test",
+			Id:    strconv.Itoa(a),
+			Score: 0,
+			Desk:  nil,
+			Deck:  cardDeck{},
+			Conn:  &websocket.Conn{},
+		}
+		s.Players[p.Id] = p
+		for k, v := range s.Players {
+			log.Println(k, "===", v)
+		}
 	}
-	s.Players[p.Id] = p
 }
