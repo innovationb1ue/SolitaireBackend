@@ -1,15 +1,17 @@
 package main
 
+import "github.com/google/uuid"
+
 type Room struct {
-	RoomId    int
-	Players   map[int]*Player
+	RoomUUID  string
+	Players   map[string]*Player
 	broadcast chan []byte
 }
 
-func newRoom(RoomId int) *Room {
+func newRoom() *Room {
 	return &Room{
-		RoomId:    RoomId,
-		Players:   make(map[int]*Player),
+		RoomUUID:  uuid.NewString(),
+		Players:   make(map[string]*Player),
 		broadcast: make(chan []byte),
 	}
 }

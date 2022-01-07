@@ -2,21 +2,21 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
-	"strconv"
 )
 
 type ServerStatusManager struct {
 	Server  interface{}
-	Players map[int]*Player
-	Rooms   map[int]*Room
+	Players map[string]*Player
+	Rooms   map[string]*Room
 }
 
 var upgrader = websocket.Upgrader{}
 
-func (s *ServerStatusManager) GetPlayer(PlayerId int) (*Player, error) {
+func (s *ServerStatusManager) GetPlayer(PlayerId string) (*Player, error) {
 	for _, p := range s.Players {
 		if p.Id == PlayerId {
 			return p, nil
@@ -35,35 +35,44 @@ func (s *ServerStatusManager) Start(port string) {
 
 	http.HandleFunc("/player/socket/", s.OpenPlayerSocket)
 	http.HandleFunc("/player/create/", s.CreatePlayer)
+	http.HandleFunc("/room/create", s.CreateNewRoom)
+
 	err := http.ListenAndServe(port, nil)
 	if err != nil {
 		panic(err)
 	}
 }
 
+func (s *ServerStatusManager) CreateNewRoom(w http.ResponseWriter, r *http.Request) {
+	room := newRoom()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok create room", "room_uuid": room.RoomUUID})
+}
+
+func (s *ServerStatusManager) JoinRoom(w http.ResponseWriter, r *http.Request) {
+	PlayerId := r.FormValue("player_id")
+	RoomId := r.FormValue("room_id")
+	room := s.Rooms[RoomId]
+	p := s.Players[PlayerId]
+	room.AddPlayer(p)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok join room"})
+}
+
 func (s *ServerStatusManager) CreatePlayer(w http.ResponseWriter, r *http.Request) {
 	p := &Player{
 		Name:   r.FormValue("player_name"),
-		Id:     0,
+		Id:     uuid.NewString(),
 		Score:  0,
 		Desk:   nil,
 		Decker: cardDeck{},
 		Conn:   &websocket.Conn{},
-	}
-	// iter through possible ids
-	for i := 1; i < 9999; i++ {
-		if s.Players[i] == nil {
-			p.Id = i
-			s.Players[i] = p
-			break
-		}
 	}
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok create player", "player_id": p.Id})
 }
 
 func (s *ServerStatusManager) OpenPlayerSocket(w http.ResponseWriter, r *http.Request) {
 	// get corresponding player
-	playerId, _ := strconv.Atoi(r.FormValue("player_id"))
+	playerId := r.FormValue("player_id")
 	player := s.Players[playerId]
 	// check for multiple connect
 	if player.isConnected {
@@ -113,14 +122,14 @@ func testHandler(c *websocket.Conn) {
 }
 
 func (s *ServerStatusManager) Init() {
-	s.Players = make(map[int]*Player)
+	s.Players = make(map[string]*Player)
 	p := &Player{
 		Name:   "Test",
-		Id:     0,
+		Id:     uuid.NewString(),
 		Score:  0,
 		Desk:   nil,
 		Decker: cardDeck{},
 		Conn:   &websocket.Conn{},
 	}
-	s.Players[0] = p
+	s.Players[p.Id] = p
 }

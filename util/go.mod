@@ -1,3 +1,3 @@
-module pkg3
+module util
 
 go 1.17
