@@ -56,8 +56,8 @@ func TestRoom_Run(t *testing.T) {
 	c1Conn, _, _ := websocket.DefaultDialer.Dial("ws://127.0.0.1:9123/player/socket/?player_id="+p2Id, nil)
 	_, t1, _ := c0Conn.ReadMessage()
 	log.Printf("%s", t1)
-	_ = c0Conn.WriteMessage(websocket.TextMessage, []byte("123"))
-	_ = c1Conn.WriteMessage(websocket.TextMessage, []byte("123"))
+	_ = c0Conn.WriteJSON(map[string]interface{}{"message": "123"})
+	_ = c1Conn.WriteJSON(map[string]interface{}{"message": "123"})
 	go PrintConnMsg(c0Conn)
 	go PrintConnMsg(c1Conn)
 	time.Sleep(5 * time.Second)
@@ -65,7 +65,7 @@ func TestRoom_Run(t *testing.T) {
 
 func DecodeJson(resp *http.Response) *map[string]interface{} {
 	v := &map[string]interface{}{}
-	json.NewDecoder(resp.Body).Decode(v)
+	_ = json.NewDecoder(resp.Body).Decode(v)
 	return v
 }
 

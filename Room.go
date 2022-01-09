@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/google/uuid"
 	"log"
+	"time"
 )
 
 type Room struct {
@@ -24,6 +25,7 @@ func (r *Room) AddPlayer(p *Player) {
 }
 
 func (r *Room) Run() {
+	ticker := time.NewTicker(60 * time.Second)
 	for {
 		select {
 		case message := <-r.broadcast:
@@ -33,14 +35,22 @@ func (r *Room) Run() {
 					if message["sender"] == client {
 						continue
 					}
-					select {
-					case client.send <- message:
-					default:
-						close(client.send)
-						delete(r.Players, client.Id)
-					}
+					client.send <- message
+				}
+			}
+		case _ = <-ticker.C:
+			{
+				aliveFlag := true
+				// todo: check player status and destroy the room if no player is alive
+				if aliveFlag {
+					continue
 				}
 			}
 		}
+
 	}
+}
+
+func (r *Room) Destroy() {
+	r = nil
 }
