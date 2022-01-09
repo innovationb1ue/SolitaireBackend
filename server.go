@@ -120,14 +120,12 @@ func (s *ServerStatusManager) OpenPlayerSocket(w http.ResponseWriter, r *http.Re
 }
 
 func (s *ServerStatusManager) Init() {
-	// initiate 2 players for test
+	// init internal vars
 	s.Players = make(map[string]*Player)
 	s.Rooms = make(map[string]*Room)
+	// initiate 2 players for test
 	for a := 0; a <= 1; a++ {
 		p := NewPlayer("Test", strconv.Itoa(a))
 		s.Players[p.Id] = p
-		for k, v := range s.Players {
-			log.Println(k, "===", v)
-		}
 	}
 }

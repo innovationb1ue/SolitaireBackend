@@ -18,7 +18,7 @@ type Player struct {
 	room        *Room
 	isConnected bool
 	// channel of outbound messages
-	send chan []byte
+	send chan map[string]interface{}
 }
 
 func NewPlayer(Name string, Id string) *Player {
@@ -31,11 +31,11 @@ func NewPlayer(Name string, Id string) *Player {
 		Conn:        &websocket.Conn{},
 		room:        nil,
 		isConnected: false,
-		send:        make(chan []byte, 10),
+		send:        make(chan map[string]interface{}, 10),
 	}
 }
 
-// receive player message and pump it to the server room
+// receive player message and pump it to the server room broadcast
 func (p *Player) readPump() {
 	// defer close connection
 	defer func() { _ = p.Conn.Close() }()
@@ -43,10 +43,11 @@ func (p *Player) readPump() {
 	for {
 		_, message, err := p.Conn.ReadMessage()
 		if err != nil {
-			log.Printf("error: %v", err)
+			log.Printf("error: %v in readPump", err)
 		}
 		log.Printf("Player readPump Receive message %s", message)
-		p.room.broadcast <- message
+		MsgPack := map[string]interface{}{"message": message, "sender": p}
+		p.room.broadcast <- MsgPack
 	}
 }
 
@@ -54,7 +55,6 @@ func (p *Player) readPump() {
 func (p *Player) writePump() {
 	defer func() { _ = p.Conn.Close() }()
 	ticker := time.NewTicker(60 * time.Second)
-	log.Printf("WritePump active")
 	for {
 		select {
 		case msg, ok := <-p.send:
@@ -72,7 +72,7 @@ func (p *Player) writePump() {
 				panic(err)
 			}
 			// write message
-			_, _ = w.Write(msg)
+			_, _ = w.Write(msg["message"].([]byte))
 		//Heartbeat
 		case msg := <-ticker.C:
 			fmt.Println(msg)

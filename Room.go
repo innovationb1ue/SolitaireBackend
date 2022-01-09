@@ -8,14 +8,14 @@ import (
 type Room struct {
 	RoomUUID  string
 	Players   map[string]*Player
-	broadcast chan []byte
+	broadcast chan map[string]interface{}
 }
 
 func newRoom() *Room {
 	return &Room{
 		RoomUUID:  uuid.NewString(),
 		Players:   make(map[string]*Player),
-		broadcast: make(chan []byte),
+		broadcast: make(chan map[string]interface{}),
 	}
 }
 
@@ -28,9 +28,11 @@ func (r *Room) Run() {
 		select {
 		case message := <-r.broadcast:
 			{
-				log.Print("Room broadcast receive message: ", string(message))
-				// todo: will send message to the caller itself. No need to do that.
+				log.Print("Room broadcast receive message: ", message)
 				for _, client := range r.Players {
+					if message["sender"] == client {
+						continue
+					}
 					select {
 					case client.send <- message:
 					default:
