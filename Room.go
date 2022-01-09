@@ -1,6 +1,9 @@
 package main
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"log"
+)
 
 type Room struct {
 	RoomUUID  string
@@ -25,6 +28,8 @@ func (r *Room) Run() {
 		select {
 		case message := <-r.broadcast:
 			{
+				log.Print("Room broadcast receive message: ", string(message))
+				// todo: will send message to the caller itself. No need to do that.
 				for _, client := range r.Players {
 					select {
 					case client.send <- message:
@@ -32,7 +37,6 @@ func (r *Room) Run() {
 						close(client.send)
 						delete(r.Players, client.Id)
 					}
-
 				}
 			}
 		}
