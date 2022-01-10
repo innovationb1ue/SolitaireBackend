@@ -51,8 +51,9 @@ func (p *Player) readPump() {
 		_ = json.Unmarshal(message, &messageJson)
 		if err != nil {
 			log.Printf("error: %v in readPump", err)
+			return
 		}
-		log.Printf("Player readPump Receive message %s", message)
+		log.Printf("Player readPump Receive message: %s", message)
 		p.room.broadcast <- messageJson
 	}
 }
@@ -84,6 +85,7 @@ func (p *Player) writePump() {
 		//Heartbeat
 		case msg := <-ticker.C:
 			{
+				// todo: do something to check player alive. Otherwise do not reset the timer
 				fmt.Println(msg)
 				expireTimer.Stop()
 				expireTimer.Reset(p.ConnExpireTime)

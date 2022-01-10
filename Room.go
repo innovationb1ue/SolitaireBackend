@@ -30,6 +30,9 @@ func (r *Room) Run() {
 		select {
 		case message := <-r.broadcast:
 			{
+				action := message["action"].(string)
+				total := int(message["card_left"].(float64))
+				log.Print(action, total)
 				log.Print("Room broadcast receive message: ", message)
 				for _, client := range r.Players {
 					if message["sender"] == client {

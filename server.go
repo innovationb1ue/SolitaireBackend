@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"util"
 )
 
 type ServerStatusManager struct {
@@ -32,8 +33,8 @@ func (s *ServerStatusManager) Start(port string) {
 		p := map[string]interface{}{"message": "Main page"}
 		_ = json.NewEncoder(writer).Encode(p)
 	})
-	http.HandleFunc("/player/create/", s.CreatePlayer)
-	http.HandleFunc("/player/socket/", s.OpenPlayerSocket)
+	http.HandleFunc("/player/create", s.CreatePlayer)
+	http.HandleFunc("/player/socket", s.OpenPlayerSocket)
 	http.HandleFunc("/player/join_room", s.JoinRoom)
 	http.HandleFunc("/room/create", s.CreateNewRoom)
 	http.HandleFunc("/player/query_all", s.QueryAllPlayer)
@@ -55,8 +56,13 @@ func (s *ServerStatusManager) CreateNewRoom(w http.ResponseWriter, _ *http.Reque
 }
 
 func (s *ServerStatusManager) JoinRoom(w http.ResponseWriter, r *http.Request) {
-	PlayerId := r.FormValue("player_id")
-	RoomId := r.FormValue("room_id")
+	ReqJson := util.PraseJson(r)
+	PlayerId := ReqJson["player_id"].(string)
+	RoomId := ReqJson["room_id"].(string)
+	if PlayerId == "" || RoomId == "" {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "Empty necessary parameter received"})
+		return
+	}
 	room := s.Rooms[RoomId]
 	p := s.Players[PlayerId]
 	room.AddPlayer(p)
@@ -67,13 +73,16 @@ func (s *ServerStatusManager) JoinRoom(w http.ResponseWriter, r *http.Request) {
 
 func (s *ServerStatusManager) CreatePlayer(w http.ResponseWriter, r *http.Request) {
 	// check required variable
-	PlayerName := r.FormValue("player_name")
+	ReqBodyJson := map[string]interface{}{}
+	decode := json.NewDecoder(r.Body)
+	_ = decode.Decode(&ReqBodyJson)
+	PlayerName := ReqBodyJson["player_name"].(string)
 	if PlayerName == "" {
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "Failed create player, empty player name. "})
 		return
 	}
 	// create player struct
-	p := NewPlayer(r.FormValue("player_name"), uuid.NewString())
+	p := NewPlayer(PlayerName, uuid.NewString())
 	s.Players[p.Id] = p
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok create player", "player_id": p.Id})
 }
@@ -95,6 +104,12 @@ func (s *ServerStatusManager) OpenPlayerSocket(w http.ResponseWriter, r *http.Re
 		return
 	}
 	// upgrade to websocket
+	upgrader.CheckOrigin = func(r *http.Request) bool {
+		if r.Header.Get("Origin")[:16] == "http://localhost" {
+			return true
+		}
+		return false
+	}
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
@@ -128,4 +143,8 @@ func (s *ServerStatusManager) Init() {
 		p := NewPlayer("Test", strconv.Itoa(a))
 		s.Players[p.Id] = p
 	}
+	room := newRoom()
+	room.RoomUUID = "0"
+	go room.Run()
+	s.Rooms[room.RoomUUID] = room
 }
