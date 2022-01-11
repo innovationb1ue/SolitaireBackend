@@ -53,6 +53,7 @@ func (p *Player) readPump() {
 			log.Printf("error: %v in readPump", err)
 			return
 		}
+		messageJson["sender"] = p
 		log.Printf("Player readPump Receive message: %s", message)
 		p.room.broadcast <- messageJson
 	}
@@ -67,6 +68,7 @@ func (p *Player) writePump() {
 		select {
 		case msg, ok := <-p.send:
 			log.Printf("p.send receive %s", msg)
+			msg = map[string]interface{}{"card_left": msg["card_left"]}
 			//if the chan already closed
 			if !ok {
 				_ = p.Conn.WriteMessage(websocket.CloseMessage, []byte{})
@@ -82,6 +84,7 @@ func (p *Player) writePump() {
 			// write message
 			MsgPack, err := json.Marshal(msg)
 			_, _ = w.Write(MsgPack)
+			_ = w.Close()
 		//Heartbeat
 		case msg := <-ticker.C:
 			{

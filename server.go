@@ -56,7 +56,7 @@ func (s *ServerStatusManager) CreateNewRoom(w http.ResponseWriter, _ *http.Reque
 }
 
 func (s *ServerStatusManager) JoinRoom(w http.ResponseWriter, r *http.Request) {
-	ReqJson := util.PraseJson(r)
+	ReqJson := util.PhraseJson(r)
 	PlayerId := ReqJson["player_id"].(string)
 	RoomId := ReqJson["room_id"].(string)
 	if PlayerId == "" || RoomId == "" {
