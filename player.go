@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
 	"time"
@@ -19,12 +18,14 @@ type Player struct {
 	room           *Room
 	isConnected    bool
 	ConnExpireTime time.Duration
-	ExpireTimer    time.Timer
+	ExpireTimer    *time.Timer
 	// channel of outbound messages
 	send chan map[string]interface{}
 }
 
 func NewPlayer(Name string, Id string) *Player {
+	timer := time.NewTimer(120 * time.Second)
+	timer.Stop()
 	return &Player{
 		Name:           Name,
 		Id:             Id,
@@ -34,8 +35,9 @@ func NewPlayer(Name string, Id string) *Player {
 		Conn:           &websocket.Conn{},
 		room:           nil,
 		isConnected:    false,
-		ConnExpireTime: 120 * time.Second,
+		ConnExpireTime: 10 * time.Second,
 		send:           make(chan map[string]interface{}, 10),
+		ExpireTimer:    timer,
 	}
 }
 
@@ -53,6 +55,13 @@ func (p *Player) readPump() {
 			log.Printf("error: %v in readPump", err)
 			return
 		}
+		// if receive heartbeat => reset the timer
+		if messageJson["action"] == "Heartbeat" {
+			log.Print("Reset heartbeat timer")
+			p.ExpireTimer.Stop()
+			p.ExpireTimer.Reset(p.ConnExpireTime)
+			return
+		}
 		messageJson["sender"] = p
 		log.Printf("Player readPump Receive message: %s", message)
 		p.room.broadcast <- messageJson
@@ -61,8 +70,7 @@ func (p *Player) readPump() {
 
 // emit message to client side
 func (p *Player) writePump() {
-	defer func() { _ = p.Conn.Close() }()
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	expireTimer := time.NewTimer(p.ConnExpireTime)
 	for {
 		select {
@@ -73,33 +81,34 @@ func (p *Player) writePump() {
 			if !ok {
 				_ = p.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				log.Print("Chan already closed")
-				return
-			}
-			//create a writer
-			w, err := p.Conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				log.Printf("%v", err)
-				panic(err)
+				continue
 			}
 			// write message
-			MsgPack, err := json.Marshal(msg)
-			_, _ = w.Write(MsgPack)
-			_ = w.Close()
-		//Heartbeat
-		case msg := <-ticker.C:
+			MsgPack, _ := json.Marshal(msg)
+			_ = p.Conn.WriteMessage(websocket.TextMessage, MsgPack)
+		// require client for heartbeat
+		case _ = <-ticker.C:
 			{
-				// todo: do something to check player alive. Otherwise do not reset the timer
-				fmt.Println(msg)
-				expireTimer.Stop()
-				expireTimer.Reset(p.ConnExpireTime)
+				HeartbeatMessage := map[string]interface{}{"action": "Heartbeat"}
+				//create a writer
+				// write message
+				MsgPack, err := json.Marshal(HeartbeatMessage)
+				if err != nil {
+					log.Print("can not marshal json in Heartbeat message")
+				}
+				_ = p.Conn.WriteMessage(websocket.TextMessage, MsgPack)
 			}
 		// on expire
 		case _ = <-expireTimer.C:
 			{
+				log.Print("connection expired")
 				p.isConnected = false
 				delete(p.room.Players, p.Id)
 				p.room = nil
+				_ = p.Conn.WriteMessage(websocket.CloseMessage, nil)
+				_ = p.Conn.Close()
 				p.Conn = nil
+				return
 			}
 		}
 
