@@ -67,7 +67,10 @@ func (s *ServerStatusManager) CreateNewRoom(w http.ResponseWriter, _ *http.Reque
 }
 
 func (s *ServerStatusManager) JoinRoom(w http.ResponseWriter, r *http.Request) {
-	ReqJson := Decoders.Req2Json(r)
+	ReqJson, err := Decoders.Req2Json(r.Body)
+	if err != nil {
+		panic(err)
+	}
 	PlayerId := ReqJson["player_id"].(string)
 	RoomId := ReqJson["room_id"].(string)
 	if PlayerId == "" || RoomId == "" {
@@ -84,7 +87,10 @@ func (s *ServerStatusManager) JoinRoom(w http.ResponseWriter, r *http.Request) {
 
 func (s *ServerStatusManager) CreatePlayer(w http.ResponseWriter, r *http.Request) {
 	// check required variable
-	ReqBodyJson := Decoders.Req2Json(r)
+	ReqBodyJson, err := Decoders.Req2Json(r.Body)
+	if err != nil {
+		panic(err)
+	}
 	PlayerName := ReqBodyJson["player_name"].(string)
 	if PlayerName == "" {
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "Failed create player, empty player name. "})

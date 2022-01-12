@@ -13,7 +13,6 @@ type Player struct {
 	Name           string
 	Id             string
 	Score          int
-	Desk           [][]card
 	Deck           cardDeck
 	Conn           *websocket.Conn
 	room           *Room
@@ -28,9 +27,8 @@ func NewPlayer(Name string, Id string) *Player {
 		Name:           Name,
 		Id:             Id,
 		Score:          0,
-		Desk:           nil,
 		Deck:           cardDeck{},
-		Conn:           &websocket.Conn{},
+		Conn:           nil,
 		room:           nil,
 		isConnected:    false,
 		ConnExpireTime: 10 * time.Second,
@@ -41,15 +39,17 @@ func NewPlayer(Name string, Id string) *Player {
 
 // receive player message and pump it to the server room broadcast
 func (p *Player) readPump() {
-	// read messages
 	for {
 		_, message, err := p.Conn.ReadMessage()
 		if err != nil {
-			log.Printf("Conn Receive %v, destroying Player Conn", err)
+			log.Printf("Conn Receive error %v, destroying Player Conn", err)
 			p.Destroy()
 			break
 		}
-		messageJson := Decoders.Msg2Map(message)
+		messageJson, err := Decoders.Msg2Map(message)
+		if err != nil {
+			panic(err)
+		}
 		// switch to handler
 		switch messageJson["action"] {
 		case "Heartbeat":
@@ -65,38 +65,41 @@ func (p *Player) readPump() {
 // emit message to client side
 func (p *Player) writePump() {
 	ticker := time.NewTicker(5 * time.Second)
-	expireTicker := time.NewTicker(10 * time.Second)
+	expireTicker := time.NewTicker(p.ConnExpireTime)
 	for {
 		select {
+		// broadcast message to client
 		case msg, ok := <-p.send:
 			log.Printf("p.send receive %s", msg)
 			msg = map[string]interface{}{"card_left": msg["card_left"]}
-			//if the chan already closed
+			// if the websocket already closed
 			if !ok {
-				_ = p.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				log.Print("Chan already closed")
-				continue
+				_ = p.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+				p.Destroy()
+				return
 			}
 			// write message
 			MsgPack, _ := json.Marshal(msg)
 			_ = p.Conn.WriteMessage(websocket.TextMessage, MsgPack)
-		// require client for heartbeat
+		// require heartbeat
 		case _ = <-ticker.C:
 			{
 				if !p.isConnected {
-					break
+					return
 				}
 				// write message
 				HeartbeatMessage := map[string]interface{}{"action": "Heartbeat"}
 				MsgPack, _ := json.Marshal(HeartbeatMessage)
 				_ = p.Conn.WriteMessage(websocket.TextMessage, MsgPack)
 			}
+		// check player heartbeat
 		case t := <-expireTicker.C:
 			if (time.Now().Sub(p.LastSeen)) > p.ConnExpireTime {
 				log.Print(time.Now().Sub(p.LastSeen))
 				log.Print(t, "onDestroy")
 				p.Destroy()
-				break
+				return
 			}
 		}
 	}
