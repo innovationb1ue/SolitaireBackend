@@ -1,18 +1,19 @@
 package main
 
 import (
+	"SolitaireBackend/Decoders"
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"strconv"
-	"util"
 )
 
 type ServerStatusManager struct {
-	Players map[string]*Player
-	Rooms   map[string]*Room
+	Players    map[string]*Player
+	Rooms      map[string]*Room
+	closeRooms chan string
 }
 
 var upgrader = websocket.Upgrader{}
@@ -38,8 +39,17 @@ func (s *ServerStatusManager) Start(port string) {
 	http.HandleFunc("/player/join_room", s.JoinRoom)
 	http.HandleFunc("/room/create", s.CreateNewRoom)
 	http.HandleFunc("/player/query_all", s.QueryAllPlayer)
+	// register self services
+	go s.closeRoomService()
 	// start server
 	_ = http.ListenAndServe(port, nil)
+}
+
+func (s *ServerStatusManager) closeRoomService() {
+	select {
+	case roomUUID := <-s.closeRooms:
+		delete(s.Rooms, roomUUID)
+	}
 }
 
 func (s *ServerStatusManager) QueryAllPlayer(w http.ResponseWriter, _ *http.Request) {
@@ -49,6 +59,7 @@ func (s *ServerStatusManager) QueryAllPlayer(w http.ResponseWriter, _ *http.Requ
 
 func (s *ServerStatusManager) CreateNewRoom(w http.ResponseWriter, _ *http.Request) {
 	room := newRoom()
+	room.SetUnregisterChan(s.closeRooms)
 	s.Rooms[room.RoomUUID] = room
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok create room", "room_uuid": room.RoomUUID})
@@ -56,7 +67,7 @@ func (s *ServerStatusManager) CreateNewRoom(w http.ResponseWriter, _ *http.Reque
 }
 
 func (s *ServerStatusManager) JoinRoom(w http.ResponseWriter, r *http.Request) {
-	ReqJson := util.PhraseJson(r)
+	ReqJson := Decoders.Req2Json(r)
 	PlayerId := ReqJson["player_id"].(string)
 	RoomId := ReqJson["room_id"].(string)
 	if PlayerId == "" || RoomId == "" {
@@ -73,9 +84,7 @@ func (s *ServerStatusManager) JoinRoom(w http.ResponseWriter, r *http.Request) {
 
 func (s *ServerStatusManager) CreatePlayer(w http.ResponseWriter, r *http.Request) {
 	// check required variable
-	ReqBodyJson := map[string]interface{}{}
-	decode := json.NewDecoder(r.Body)
-	_ = decode.Decode(&ReqBodyJson)
+	ReqBodyJson := Decoders.Req2Json(r)
 	PlayerName := ReqBodyJson["player_name"].(string)
 	if PlayerName == "" {
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "Failed create player, empty player name. "})
@@ -144,6 +153,7 @@ func (s *ServerStatusManager) Init() {
 		s.Players[p.Id] = p
 	}
 	room := newRoom()
+	room.SetUnregisterChan(s.closeRooms)
 	room.RoomUUID = "0"
 	go room.Run()
 	s.Rooms[room.RoomUUID] = room

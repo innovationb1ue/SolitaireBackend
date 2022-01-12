@@ -33,21 +33,31 @@ func TestRoom_Run(t *testing.T) {
 	RoomUUID := (*v)["room_uuid"].(string)
 
 	// create 2 players
-	p1Resp, err := http.Get("http://127.0.0.1:9123/player/create?player_name=Jeff")
+	p1Resp, err := http.PostForm("http://127.0.0.1:9123/player/create",
+		url.Values{
+			"player_name": {
+				"Jeff",
+			},
+		})
 	p1Json := DecodeJson(p1Resp)
 	p1Id := (*p1Json)["player_id"].(string)
 	log.Print(p1Id)
-	p2Resp, err := http.Get("http://127.0.0.1:9123/player/create?player_name=Nerd")
+	p2Resp, err := http.PostForm("http://127.0.0.1:9123/player/create",
+		url.Values{
+			"player_name": {
+				"Nerd",
+			},
+		})
 	p2Json := DecodeJson(p2Resp)
 	p2Id := (*p2Json)["player_id"].(string)
 	log.Print(p2Id)
 	// join the same room
 	data1 := url.Values{"player_id": {p1Id}, "room_id": {RoomUUID}}
-	joinResp1, _ := http.PostForm("http://127.0.0.1:9123/player/join_room", data1)
+	joinResp1, _ := http.PostForm("http://127.0.0.1:9123/playerjoin_room", data1)
 	joinJson1 := DecodeJson(joinResp1)
 	log.Print(joinJson1)
 	data2 := url.Values{"player_id": {p2Id}, "room_id": {RoomUUID}}
-	joinResp2, _ := http.PostForm("http://127.0.0.1:9123/player/join_room", data2)
+	joinResp2, _ := http.PostForm("http://127.0.0.1:9123/playerjoin_room", data2)
 	joinJson2 := DecodeJson(joinResp2)
 	log.Print(joinJson2)
 	// connect websocket
