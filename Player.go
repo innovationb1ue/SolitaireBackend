@@ -70,8 +70,8 @@ func (p *Player) writePump() {
 		select {
 		// broadcast message to client
 		case msg, ok := <-p.send:
-			log.Printf("p.send receive %s", msg)
-			msg = map[string]interface{}{"card_left": msg["card_left"]}
+			log.Printf("p.send receive %s", msg["action"])
+			delete(msg, "sender")
 			// if the websocket already closed
 			if !ok {
 				log.Print("Chan already closed")
