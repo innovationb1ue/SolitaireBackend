@@ -7,7 +7,6 @@ import (
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
-	"strconv"
 )
 
 type ServerStatusManager struct {
@@ -151,17 +150,8 @@ func (s *ServerStatusManager) OpenPlayerSocket(w http.ResponseWriter, r *http.Re
 	go player.writePump()
 }
 func (s *ServerStatusManager) Init() {
-	// init internal vars
+	// init properties
 	s.Players = make(map[string]*Player)
 	s.Rooms = make(map[string]*Room)
 	s.UnregisterRoom = make(chan string, 1)
-	// initiate 2 players for test
-	for a := 0; a <= 1; a++ {
-		p := NewPlayer("Test", strconv.Itoa(a))
-		s.Players[p.Id] = p
-	}
-	room := newRoom(s.UnregisterRoom)
-	room.RoomUUID = "0"
-	s.Rooms[room.RoomUUID] = room
-	go room.Run()
 }
