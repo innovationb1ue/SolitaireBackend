@@ -121,7 +121,7 @@ func (s *ServerStatusManager) OpenPlayerSocket(w http.ResponseWriter, r *http.Re
 	}
 	// upgrade to websocket
 	upgrader.CheckOrigin = func(r *http.Request) bool {
-		if r.Header.Get("Origin")[:16] == "http://localhost" {
+		if r.Header.Get("Origin")[:16] == "http://127.0.0.1" {
 			return true
 		}
 		return false
