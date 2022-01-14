@@ -13,7 +13,6 @@ type Player struct {
 	Name           string
 	Id             string
 	Score          int
-	Deck           cardDeck
 	Conn           *websocket.Conn
 	room           *Room
 	isConnected    bool
@@ -27,7 +26,6 @@ func NewPlayer(Name string, Id string) *Player {
 		Name:           Name,
 		Id:             Id,
 		Score:          0,
-		Deck:           cardDeck{},
 		Conn:           nil,
 		room:           nil,
 		isConnected:    false,
@@ -54,7 +52,12 @@ func (p *Player) readPump() {
 		switch messageJson["action"] {
 		case "Heartbeat":
 			p.LastSeen = time.Now()
-			log.Print("Reset heartbeat timer")
+		case "InitDeck":
+			if p.room.Deck == nil {
+				p.room.NewRoomDeck()
+			}
+			deckBytes, _ := json.Marshal(p.room.Deck)
+			p.send <- map[string]interface{}{"action": "InitDeck", "Deck": string(deckBytes)}
 		default:
 			messageJson["sender"] = p
 			p.room.broadcast <- messageJson
@@ -64,7 +67,7 @@ func (p *Player) readPump() {
 
 // emit message to client side
 func (p *Player) writePump() {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(3 * time.Second)
 	expireTicker := time.NewTicker(p.ConnExpireTime)
 	for {
 		select {
@@ -96,8 +99,9 @@ func (p *Player) writePump() {
 		// check player heartbeat
 		case t := <-expireTicker.C:
 			if (time.Now().Sub(p.LastSeen)) > p.ConnExpireTime {
+				log.Print(p.LastSeen)
 				log.Print(time.Now().Sub(p.LastSeen))
-				log.Print(t, "onDestroy")
+				log.Print(t, " onDestroy")
 				p.Destroy()
 				return
 			}

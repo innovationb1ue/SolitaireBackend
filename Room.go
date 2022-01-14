@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/google/uuid"
-	"log"
 	"time"
 )
 
@@ -11,6 +10,7 @@ type Room struct {
 	Players        map[string]*Player
 	broadcast      chan map[string]interface{}
 	UnregisterChan chan string // send self UUID to this chan to unregister this channel
+	Deck           [][]map[string]interface{}
 }
 
 func newRoom() *Room {
@@ -18,6 +18,7 @@ func newRoom() *Room {
 		RoomUUID:  uuid.NewString(),
 		Players:   make(map[string]*Player),
 		broadcast: make(chan map[string]interface{}),
+		Deck:      nil,
 	}
 }
 
@@ -29,14 +30,18 @@ func (r *Room) AddPlayer(p *Player) {
 	r.Players[p.Id] = p
 }
 
+func (r *Room) NewRoomDeck() {
+	r.Deck = InitAllCards()
+}
+
 func (r *Room) Run() {
 	ticker := time.NewTicker(5 * time.Second)
 	for {
 		select {
 		case message := <-r.broadcast:
 			{
-				// broadcast the original message to all other players
-				log.Print("Room broadcast receive message: ", message)
+				// broadcast the original message to all others players
+				//log.Print("Room broadcast receive message: ", message)
 				for _, client := range r.Players {
 					if message["sender"].(*Player) == client {
 						continue
