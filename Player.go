@@ -110,7 +110,7 @@ func (p *Player) writePump() {
 }
 
 func (p *Player) Destroy() {
-	log.Print("connection expired")
+	log.Print("Destroying player")
 	p.isConnected = false
 	delete(p.room.Players, p.Id)
 	p.room = nil

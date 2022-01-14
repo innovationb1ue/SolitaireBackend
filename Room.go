@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/google/uuid"
+	"log"
 	"time"
 )
 
@@ -9,21 +10,18 @@ type Room struct {
 	RoomUUID       string
 	Players        map[string]*Player
 	broadcast      chan map[string]interface{}
-	UnregisterChan chan string // send self UUID to this chan to unregister this channel
 	Deck           [][]map[string]interface{}
+	unregisterChan chan<- string
 }
 
-func newRoom() *Room {
+func newRoom(unregisterChan chan<- string) *Room {
 	return &Room{
-		RoomUUID:  uuid.NewString(),
-		Players:   make(map[string]*Player),
-		broadcast: make(chan map[string]interface{}),
-		Deck:      nil,
+		RoomUUID:       uuid.NewString(),
+		Players:        make(map[string]*Player),
+		broadcast:      make(chan map[string]interface{}),
+		Deck:           nil,
+		unregisterChan: unregisterChan,
 	}
-}
-
-func (r *Room) SetUnregisterChan(UnregisterChan chan string) {
-	r.UnregisterChan = UnregisterChan
 }
 
 func (r *Room) AddPlayer(p *Player) {
@@ -53,11 +51,11 @@ func (r *Room) Run() {
 			{
 				PlayerCount := len(r.Players)
 				if PlayerCount == 0 {
-					r.UnregisterChan <- r.RoomUUID
+					log.Println("Destroy Room since no active player")
+					r.unregisterChan <- r.RoomUUID
 					return
 				}
 			}
 		}
-
 	}
 }

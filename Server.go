@@ -11,9 +11,9 @@ import (
 )
 
 type ServerStatusManager struct {
-	Players    map[string]*Player
-	Rooms      map[string]*Room
-	closeRooms chan string
+	Players        map[string]*Player
+	Rooms          map[string]*Room
+	UnregisterRoom chan string
 }
 
 var upgrader = websocket.Upgrader{}
@@ -46,9 +46,12 @@ func (s *ServerStatusManager) Start(port string) {
 }
 
 func (s *ServerStatusManager) closeRoomService() {
-	select {
-	case roomUUID := <-s.closeRooms:
-		delete(s.Rooms, roomUUID)
+	for {
+		select {
+		case roomUUID := <-s.UnregisterRoom:
+			log.Printf("Unregister room %s at server side", roomUUID)
+			delete(s.Rooms, roomUUID)
+		}
 	}
 }
 
@@ -58,8 +61,7 @@ func (s *ServerStatusManager) QueryAllPlayer(w http.ResponseWriter, _ *http.Requ
 }
 
 func (s *ServerStatusManager) CreateNewRoom(w http.ResponseWriter, _ *http.Request) {
-	room := newRoom()
-	room.SetUnregisterChan(s.closeRooms)
+	room := newRoom(s.UnregisterRoom)
 	s.Rooms[room.RoomUUID] = room
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok create room", "room_uuid": room.RoomUUID})
@@ -148,19 +150,18 @@ func (s *ServerStatusManager) OpenPlayerSocket(w http.ResponseWriter, r *http.Re
 	go player.readPump()
 	go player.writePump()
 }
-
 func (s *ServerStatusManager) Init() {
 	// init internal vars
 	s.Players = make(map[string]*Player)
 	s.Rooms = make(map[string]*Room)
+	s.UnregisterRoom = make(chan string, 1)
 	// initiate 2 players for test
 	for a := 0; a <= 1; a++ {
 		p := NewPlayer("Test", strconv.Itoa(a))
 		s.Players[p.Id] = p
 	}
-	room := newRoom()
-	room.SetUnregisterChan(s.closeRooms)
+	room := newRoom(s.UnregisterRoom)
 	room.RoomUUID = "0"
-	go room.Run()
 	s.Rooms[room.RoomUUID] = room
+	go room.Run()
 }
