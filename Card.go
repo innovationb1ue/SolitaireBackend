@@ -15,6 +15,9 @@ func InitAllCards() [][]map[string]interface{} {
 	var initDeck []map[string]interface{}
 	for i, r := range ranks {
 		for _, s := range suits {
+			if s == "clubs" {
+				continue
+			}
 			initDeck = append(initDeck, map[string]interface{}{"rank": r, "isDown": true, "suit": s,
 				"deck": 1, "rank_num": ranksNum[i]})
 			initDeck = append(initDeck, map[string]interface{}{"rank": r, "isDown": true, "suit": s,
