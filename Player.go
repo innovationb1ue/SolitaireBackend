@@ -30,7 +30,7 @@ func NewPlayer(Name string, Id string) *Player {
 		Conn:           nil,
 		room:           nil,
 		isConnected:    false,
-		ConnExpireTime: 10 * time.Second,
+		ConnExpireTime: 30 * time.Second,
 		LastSeen:       time.Now(),
 		send:           make(chan map[string]interface{}, 10),
 	}

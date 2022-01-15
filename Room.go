@@ -15,13 +15,13 @@ type Room struct {
 	unRegister chan<- string
 }
 
-func newRoom(unregisterChan chan<- string) *Room {
+func newRoom(unRegister chan<- string) *Room {
 	return &Room{
 		RoomUUID:   uuid.NewString(),
 		Players:    make(map[string]*Player),
 		broadcast:  make(chan map[string]interface{}),
 		Deck:       nil,
-		unRegister: unregisterChan,
+		unRegister: unRegister,
 	}
 }
 

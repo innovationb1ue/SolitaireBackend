@@ -71,7 +71,8 @@ func (s *ServerStatusManager) CreateNewRoom(w http.ResponseWriter, _ *http.Reque
 func (s *ServerStatusManager) JoinRoom(w http.ResponseWriter, r *http.Request) {
 	ReqJson, err := Decoders.Req2Json(r.Body)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		return
 	}
 	PlayerId := ReqJson["player_id"].(string)
 	RoomId := ReqJson["room_id"].(string)
@@ -83,7 +84,7 @@ func (s *ServerStatusManager) JoinRoom(w http.ResponseWriter, r *http.Request) {
 	p := s.Players[PlayerId]
 	if room == nil || p == nil {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "Too many players", "status": -1})
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "player or room not found", "status": -1})
 		return
 	}
 	err = room.AddPlayer(p)
