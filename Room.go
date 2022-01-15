@@ -1,31 +1,37 @@
 package main
 
 import (
+	"errors"
 	"github.com/google/uuid"
 	"log"
 	"time"
 )
 
 type Room struct {
-	RoomUUID       string
-	Players        map[string]*Player
-	broadcast      chan map[string]interface{}
-	Deck           [][]map[string]interface{}
-	unregisterChan chan<- string
+	RoomUUID   string
+	Players    map[string]*Player
+	broadcast  chan map[string]interface{}
+	Deck       [][]map[string]interface{}
+	unRegister chan<- string
 }
 
 func newRoom(unregisterChan chan<- string) *Room {
 	return &Room{
-		RoomUUID:       uuid.NewString(),
-		Players:        make(map[string]*Player),
-		broadcast:      make(chan map[string]interface{}),
-		Deck:           nil,
-		unregisterChan: unregisterChan,
+		RoomUUID:   uuid.NewString(),
+		Players:    make(map[string]*Player),
+		broadcast:  make(chan map[string]interface{}),
+		Deck:       nil,
+		unRegister: unregisterChan,
 	}
 }
 
-func (r *Room) AddPlayer(p *Player) {
+func (r *Room) AddPlayer(p *Player) error {
+	if len(r.Players) >= 2 {
+		log.Println("more than 2 player in the same room not supported")
+		return errors.New("too many players")
+	}
 	r.Players[p.Id] = p
+	return nil
 }
 
 func (r *Room) NewRoomDeck() {
@@ -52,7 +58,7 @@ func (r *Room) Run() {
 				PlayerCount := len(r.Players)
 				if PlayerCount == 0 {
 					log.Println("Destroy Room since no active player")
-					r.unregisterChan <- r.RoomUUID
+					r.unRegister <- r.RoomUUID
 					return
 				}
 			}

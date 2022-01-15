@@ -19,6 +19,7 @@ type Player struct {
 	ConnExpireTime time.Duration
 	LastSeen       time.Time
 	send           chan map[string]interface{} // channel of outbound messages
+	unRegister     chan<- string
 }
 
 func NewPlayer(Name string, Id string) *Player {
@@ -111,10 +112,11 @@ func (p *Player) writePump() {
 
 func (p *Player) Destroy() {
 	log.Print("Destroying player")
-	p.isConnected = false
+	go func() { p.unRegister <- p.Id }()
 	delete(p.room.Players, p.Id)
 	p.room = nil
 	_ = p.Conn.WriteMessage(websocket.CloseMessage, nil)
 	_ = p.Conn.Close()
+	p.isConnected = false
 	p.Conn = nil
 }

@@ -10,9 +10,10 @@ import (
 )
 
 type ServerStatusManager struct {
-	Players        map[string]*Player
-	Rooms          map[string]*Room
-	UnregisterRoom chan string
+	Players          map[string]*Player
+	Rooms            map[string]*Room
+	UnregisterRoom   chan string
+	UnregisterPlayer chan string
 }
 
 var upgrader = websocket.Upgrader{}
@@ -56,7 +57,7 @@ func (s *ServerStatusManager) closeRoomService() {
 
 func (s *ServerStatusManager) QueryAllPlayer(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok create room", "player_ids": s.Players})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok query all player", "player_ids": s.Players})
 }
 
 func (s *ServerStatusManager) CreateNewRoom(w http.ResponseWriter, _ *http.Request) {
@@ -80,10 +81,20 @@ func (s *ServerStatusManager) JoinRoom(w http.ResponseWriter, r *http.Request) {
 	}
 	room := s.Rooms[RoomId]
 	p := s.Players[PlayerId]
-	room.AddPlayer(p)
+	if room == nil || p == nil {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "Too many players", "status": -1})
+		return
+	}
+	err = room.AddPlayer(p)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "Too many players", "status": -1})
+		return
+	}
 	p.room = room
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok join room"})
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok join room", "status": 0})
 }
 
 func (s *ServerStatusManager) CreatePlayer(w http.ResponseWriter, r *http.Request) {
@@ -99,6 +110,7 @@ func (s *ServerStatusManager) CreatePlayer(w http.ResponseWriter, r *http.Reques
 	}
 	// create player struct
 	p := NewPlayer(PlayerName, uuid.NewString())
+	p.unRegister = s.UnregisterPlayer
 	s.Players[p.Id] = p
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok create player", "player_id": p.Id})
 }
