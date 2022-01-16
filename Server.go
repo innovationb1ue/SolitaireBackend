@@ -2,8 +2,8 @@ package main
 
 import (
 	"SolitaireBackend/Decoders"
+	"SolitaireBackend/HttpHelper"
 	"encoding/json"
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
@@ -36,11 +36,11 @@ func (s *ServerStatusManager) Start(port string) {
 	})
 	http.HandleFunc("/player/create", s.CreatePlayer)
 	http.HandleFunc("/player/socket", s.OpenPlayerSocket)
-	http.HandleFunc("/player/join_room", s.JoinRoom)
 	http.HandleFunc("/room/create", s.CreateNewRoom)
-	http.HandleFunc("/player/query_all", s.QueryAllPlayer)
+	http.HandleFunc("/player/join_room", s.JoinRoom)
 	// register self services
 	go s.closeRoomService()
+	go s.deletePlayerService()
 	// start server
 	_ = http.ListenAndServe(port, nil)
 }
@@ -55,20 +55,31 @@ func (s *ServerStatusManager) closeRoomService() {
 	}
 }
 
-func (s *ServerStatusManager) QueryAllPlayer(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok query all player", "player_ids": s.Players})
+func (s *ServerStatusManager) deletePlayerService() {
+	for {
+		select {
+		case playerId := <-s.UnregisterPlayer:
+			log.Printf("Unregister player %s at server side", playerId)
+			delete(s.Players, playerId)
+		}
+	}
 }
 
 func (s *ServerStatusManager) CreateNewRoom(w http.ResponseWriter, _ *http.Request) {
 	room := newRoom(s.UnregisterRoom)
 	s.Rooms[room.RoomUUID] = room
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok create room", "room_uuid": room.RoomUUID})
+	_ = json.NewEncoder(w).Encode(
+		map[string]interface{}{
+			"message":   "ok create room",
+			"status":    0,
+			"room_uuid": room.RoomUUID,
+		})
 	go room.Run()
 }
 
 func (s *ServerStatusManager) JoinRoom(w http.ResponseWriter, r *http.Request) {
+	// decode frontend data
 	ReqJson, err := Decoders.Req2Json(r.Body)
 	if err != nil {
 		log.Println(err)
@@ -83,35 +94,33 @@ func (s *ServerStatusManager) JoinRoom(w http.ResponseWriter, r *http.Request) {
 	room := s.Rooms[RoomId]
 	p := s.Players[PlayerId]
 	if room == nil || p == nil {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "player or room not found", "status": -1})
+		_ = HttpHelper.ReturnJson(w, map[string]interface{}{"message": "player or room not found", "status": -1})
 		return
 	}
 	err = room.AddPlayer(p)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "Too many players", "status": -1})
+		_ = HttpHelper.ReturnJson(w, map[string]interface{}{"message": "Too many players", "status": -1})
 		return
 	}
 	p.room = room
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok join room", "status": 0})
+	_ = HttpHelper.ReturnJson(w, map[string]interface{}{"message": "ok join room", "status": 0})
 }
 
 func (s *ServerStatusManager) CreatePlayer(w http.ResponseWriter, r *http.Request) {
 	// check required variable
 	ReqBodyJson, err := Decoders.Req2Json(r.Body)
 	if err != nil {
-		panic(err)
+		return
 	}
 	PlayerName := ReqBodyJson["player_name"].(string)
 	if PlayerName == "" {
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "Failed create player, empty player name. "})
+		_ = HttpHelper.ReturnJson(w, map[string]interface{}{"message": "Failed create player, empty player name. "})
 		return
 	}
 	// create player struct
-	p := NewPlayer(PlayerName, uuid.NewString())
-	p.unRegister = s.UnregisterPlayer
+	p := NewPlayer(PlayerName)
+	p.unRegisterSelf = s.UnregisterPlayer
 	s.Players[p.Id] = p
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok create player", "player_id": p.Id})
 }
@@ -143,11 +152,6 @@ func (s *ServerStatusManager) OpenPlayerSocket(w http.ResponseWriter, r *http.Re
 	}
 	player.Conn = c
 	player.isConnected = true
-	player.Conn.SetCloseHandler(func(code int, text string) error {
-		player.isConnected = false
-		_ = player.Conn.WriteJSON(map[string]string{"message": "Successfully disconnected"})
-		return nil
-	})
 	// response
 	err = player.Conn.WriteJSON(map[string]string{"message": "ok socket established"})
 	if err != nil {
@@ -159,6 +163,7 @@ func (s *ServerStatusManager) OpenPlayerSocket(w http.ResponseWriter, r *http.Re
 	go player.readPump()
 	go player.writePump()
 }
+
 func (s *ServerStatusManager) Init() {
 	// init properties
 	s.Players = make(map[string]*Player)

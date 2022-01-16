@@ -12,7 +12,7 @@ import (
 
 func TestRoom_Run(t *testing.T) {
 	t.Log("Inside test room")
-	r := newRoom()
+	r := newRoom(make(chan string))
 	go r.Run()
 
 	s := ServerStatusManager{}

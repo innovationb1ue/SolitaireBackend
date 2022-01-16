@@ -3,6 +3,7 @@ package main
 import (
 	"SolitaireBackend/Decoders"
 	"encoding/json"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"log"
 	"time"
@@ -19,13 +20,13 @@ type Player struct {
 	ConnExpireTime time.Duration
 	LastSeen       time.Time
 	send           chan map[string]interface{} // channel of outbound messages
-	unRegister     chan<- string
+	unRegisterSelf chan<- string
 }
 
-func NewPlayer(Name string, Id string) *Player {
+func NewPlayer(Name string) *Player {
 	return &Player{
 		Name:           Name,
-		Id:             Id,
+		Id:             uuid.NewString(),
 		Score:          0,
 		Conn:           nil,
 		room:           nil,
@@ -54,9 +55,6 @@ func (p *Player) readPump() {
 		case "Heartbeat":
 			p.LastSeen = time.Now()
 		case "InitDeck":
-			if p.room.Deck == nil {
-				p.room.NewRoomDeck()
-			}
 			deckBytes, _ := json.Marshal(p.room.Deck)
 			p.send <- map[string]interface{}{"action": "InitDeck", "Deck": string(deckBytes)}
 		default:
@@ -112,8 +110,8 @@ func (p *Player) writePump() {
 
 func (p *Player) Destroy() {
 	log.Print("Destroying player")
-	go func() { p.unRegister <- p.Id }()
-	delete(p.room.Players, p.Id)
+	p.unRegisterSelf <- p.Id        // unregister self at server
+	p.room.unRegisterPlayer <- p.Id // unregister self at room
 	p.room = nil
 	_ = p.Conn.WriteMessage(websocket.CloseMessage, nil)
 	_ = p.Conn.Close()

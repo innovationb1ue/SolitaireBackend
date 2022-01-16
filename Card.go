@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"math/rand"
 	"time"
 )
@@ -15,7 +16,7 @@ func InitAllCards() [][]map[string]interface{} {
 	var initDeck []map[string]interface{}
 	for i, r := range ranks {
 		for _, s := range suits {
-			if s == "clubs" {
+			if s == "clubs" || s == "diamond" {
 				continue
 			}
 			initDeck = append(initDeck, map[string]interface{}{"rank": r, "isDown": true, "suit": s,
@@ -24,15 +25,17 @@ func InitAllCards() [][]map[string]interface{} {
 				"deck": 2, "rank_num": ranksNum[i]})
 		}
 	}
+	// get a rand
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(initDeck), func(i, j int) {
 		initDeck[i], initDeck[j] = initDeck[j], initDeck[i]
 	})
-
+	// split into 10 piles and a deck
 	chunkedDeck := chunkBy(initDeck, 5, 10)
 	for _, d := range chunkedDeck {
 		d[len(d)-1]["isDown"] = false
 	}
+	log.Println(chunkedDeck)
 	return chunkedDeck
 }
 

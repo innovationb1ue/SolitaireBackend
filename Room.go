@@ -8,20 +8,22 @@ import (
 )
 
 type Room struct {
-	RoomUUID   string
-	Players    map[string]*Player
-	broadcast  chan map[string]interface{}
-	Deck       [][]map[string]interface{}
-	unRegister chan<- string
+	RoomUUID         string
+	Players          map[string]*Player
+	broadcast        chan map[string]interface{}
+	Deck             [][]map[string]interface{}
+	unRegisterSelf   chan<- string
+	unRegisterPlayer chan string
 }
 
 func newRoom(unRegister chan<- string) *Room {
 	return &Room{
-		RoomUUID:   uuid.NewString(),
-		Players:    make(map[string]*Player),
-		broadcast:  make(chan map[string]interface{}),
-		Deck:       nil,
-		unRegister: unRegister,
+		RoomUUID:         uuid.NewString(),
+		Players:          make(map[string]*Player),
+		broadcast:        make(chan map[string]interface{}),
+		Deck:             InitAllCards(),
+		unRegisterSelf:   unRegister,
+		unRegisterPlayer: make(chan string, 10),
 	}
 }
 
@@ -32,10 +34,6 @@ func (r *Room) AddPlayer(p *Player) error {
 	}
 	r.Players[p.Id] = p
 	return nil
-}
-
-func (r *Room) NewRoomDeck() {
-	r.Deck = InitAllCards()
 }
 
 func (r *Room) Run() {
@@ -53,15 +51,20 @@ func (r *Room) Run() {
 					client.send <- message
 				}
 			}
+		case playerId := <-r.unRegisterPlayer:
+			{
+				delete(r.Players, playerId)
+			}
 		case _ = <-ticker.C:
 			{
 				PlayerCount := len(r.Players)
 				if PlayerCount == 0 {
 					log.Println("Destroy Room since no active player")
-					r.unRegister <- r.RoomUUID
+					r.unRegisterSelf <- r.RoomUUID
 					return
 				}
 			}
+
 		}
 	}
 }
