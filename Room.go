@@ -16,7 +16,7 @@ type Room struct {
 	unRegisterPlayer chan string
 }
 
-func newRoom(unRegister chan<- string) *Room {
+func NewRoom(unRegister chan<- string) *Room {
 	return &Room{
 		RoomUUID:         uuid.NewString(),
 		Players:          make(map[string]*Player),

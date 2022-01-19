@@ -66,7 +66,7 @@ func (s *ServerStatusManager) deletePlayerService() {
 }
 
 func (s *ServerStatusManager) CreateNewRoom(w http.ResponseWriter, _ *http.Request) {
-	room := newRoom(s.UnregisterRoom)
+	room := NewRoom(s.UnregisterRoom)
 	s.Rooms[room.RoomUUID] = room
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(
