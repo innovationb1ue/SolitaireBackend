@@ -37,13 +37,12 @@ func (r *Room) AddPlayer(p *Player) error {
 }
 
 func (r *Room) Run() {
-	ticker := time.NewTicker(5 * time.Second)
+	Destroy := time.NewTicker(5 * time.Second)
 	for {
 		select {
 		case message := <-r.broadcast:
 			{
 				// broadcast the original message to all others players
-				//log.Print("Room broadcast receive message: ", message)
 				for _, client := range r.Players {
 					if message["sender"].(*Player) == client {
 						continue
@@ -55,7 +54,7 @@ func (r *Room) Run() {
 			{
 				delete(r.Players, playerId)
 			}
-		case _ = <-ticker.C:
+		case _ = <-Destroy.C:
 			{
 				PlayerCount := len(r.Players)
 				if PlayerCount == 0 {
