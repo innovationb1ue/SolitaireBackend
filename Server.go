@@ -113,6 +113,10 @@ func (s *ServerStatusManager) CreatePlayer(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		return
 	}
+	if ReqBodyJson["player_name"] == nil {
+		_ = HttpHelper.ReturnJson(w, map[string]interface{}{"message": "Failed create player, empty player name. "})
+		return
+	}
 	PlayerName := ReqBodyJson["player_name"].(string)
 	if PlayerName == "" {
 		_ = HttpHelper.ReturnJson(w, map[string]interface{}{"message": "Failed create player, empty player name. "})
