@@ -66,7 +66,7 @@ func (s *ServerStatusManager) deletePlayerService() {
 }
 
 func (s *ServerStatusManager) CreateNewRoom(w http.ResponseWriter, _ *http.Request) {
-	room := newRoom(s.UnregisterRoom)
+	room := NewRoom(s.UnregisterRoom)
 	s.Rooms[room.RoomUUID] = room
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(
@@ -122,7 +122,7 @@ func (s *ServerStatusManager) CreatePlayer(w http.ResponseWriter, r *http.Reques
 	p := NewPlayer(PlayerName)
 	p.unRegisterSelf = s.UnregisterPlayer
 	s.Players[p.Id] = p
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"message": "ok create player", "player_id": p.Id})
+	_ = HttpHelper.ReturnJson(w, map[string]interface{}{"message": "ok create player", "player_id": p.Id})
 }
 
 func (s *ServerStatusManager) OpenPlayerSocket(w http.ResponseWriter, r *http.Request) {
