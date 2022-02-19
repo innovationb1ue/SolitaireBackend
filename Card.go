@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"math/rand"
 	"time"
 )
@@ -35,7 +34,6 @@ func InitAllCards() [][]map[string]interface{} {
 	for _, d := range chunkedDeck {
 		d[len(d)-1]["isDown"] = false
 	}
-	log.Println(chunkedDeck)
 	return chunkedDeck
 }
 

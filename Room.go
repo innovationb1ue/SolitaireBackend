@@ -37,7 +37,7 @@ func (r *Room) AddPlayer(p *Player) error {
 }
 
 func (r *Room) Run() {
-	Destroy := time.NewTicker(5 * time.Second)
+	Destroy := time.NewTicker(20 * time.Second)
 	for {
 		select {
 		case message := <-r.broadcast:
