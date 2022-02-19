@@ -164,8 +164,10 @@ func (s *ServerStatusManager) OpenPlayerSocket(w http.ResponseWriter, r *http.Re
 	}
 	log.Printf("Player %s Websocket connected", player.Name)
 	// call player socket service
-	go player.readPump()
-	go player.writePump()
+	ClosePlayerReadPump := make(chan string)
+	ClosePlayerWritePump := make(chan string)
+	go player.readPump(ClosePlayerReadPump)
+	go player.writePump(ClosePlayerWritePump)
 }
 
 func (s *ServerStatusManager) Init() {

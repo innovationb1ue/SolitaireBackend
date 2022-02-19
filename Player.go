@@ -38,8 +38,9 @@ func NewPlayer(Name string) *Player {
 }
 
 // receive player message and pump it to the server room broadcast
-func (p *Player) readPump() {
+func (p *Player) readPump(Close <-chan string) {
 	for {
+		// todo: select between websocket conn message and Close chan.
 		_, message, err := p.Conn.ReadMessage()
 		if err != nil {
 			log.Printf("Conn Receive error %v, destroying Player Conn", err)
@@ -57,6 +58,10 @@ func (p *Player) readPump() {
 		case "InitDeck":
 			deckBytes, _ := json.Marshal(p.room.Deck)
 			p.send <- map[string]interface{}{"action": "InitDeck", "Deck": string(deckBytes)}
+		case "LeaveRoom":
+			p.send <- map[string]interface{}{"action": "Player Leaving Room"}
+			p.Destroy()
+			return
 		default:
 			messageJson["sender"] = p
 			p.room.broadcast <- messageJson
@@ -65,8 +70,8 @@ func (p *Player) readPump() {
 }
 
 // emit message to client side
-func (p *Player) writePump() {
-	ticker := time.NewTicker(3 * time.Second)
+func (p *Player) writePump(Close <-chan string) {
+	HeartbeatTicker := time.NewTicker(3 * time.Second)
 	expireTicker := time.NewTicker(p.ConnExpireTime)
 	for {
 		select {
@@ -85,7 +90,7 @@ func (p *Player) writePump() {
 			MsgPack, _ := json.Marshal(msg)
 			_ = p.Conn.WriteMessage(websocket.TextMessage, MsgPack)
 		// require heartbeat
-		case _ = <-ticker.C:
+		case _ = <-HeartbeatTicker.C:
 			{
 				if !p.isConnected {
 					return
@@ -95,7 +100,7 @@ func (p *Player) writePump() {
 				MsgPack, _ := json.Marshal(HeartbeatMessage)
 				_ = p.Conn.WriteMessage(websocket.TextMessage, MsgPack)
 			}
-		// check player heartbeat
+		// check player expire
 		case t := <-expireTicker.C:
 			if (time.Now().Sub(p.LastSeen)) > p.ConnExpireTime {
 				log.Print(p.LastSeen)
