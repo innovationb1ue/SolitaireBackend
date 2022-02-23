@@ -38,11 +38,16 @@ func (s *ServerStatusManager) Start(port string) {
 	http.HandleFunc("/player/socket", s.OpenPlayerSocket)
 	http.HandleFunc("/room/create", s.CreateNewRoom)
 	http.HandleFunc("/player/join_room", s.JoinRoom)
+	http.HandleFunc("/info", s.Info)
 	// register self services
 	go s.closeRoomService()
 	go s.deletePlayerService()
 	// start server
 	_ = http.ListenAndServe(port, nil)
+}
+
+func (s *ServerStatusManager) Info(w http.ResponseWriter, _ *http.Request) {
+	_ = HttpHelper.ReturnJson(w, map[string]interface{}{"status": 1})
 }
 
 func (s *ServerStatusManager) closeRoomService() {
