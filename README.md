@@ -2,6 +2,9 @@
 
 Provide backend for a double player solitaire game
 
+# Front end codes
+[Solitaire](https://github.com/innovationb1ue/solitaire)
+
 # run 
 Install the newest version of golang
 
